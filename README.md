@@ -85,4 +85,51 @@ services:
 
 [xhgui/xhgui](https://hub.docker.com/r/xhgui/xhgui) というイメージもありますが、これは nginx や mongodb を別に用意する必要があります。あとなぜか `/var/www/xhgui/config` に謎のコンフィグファイルが置かれているため、別にコンフィルファイルを用意してマウントするか、あるいは削除しないと環境変数で設定を指定できません。。。
 
+## xhgui: document to insert contains invalid key: keys cannot contain "."
+
+
+と思ったら xhprof 拡張を使ったときだけ下記の問題で xhgui で mongodb への保存が失敗するようになりました。
+
+- https://github.com/perftools/xhgui/issues/209
+
+tideways_xhprof 拡張では発生しないようです。プロファイル結果のオブジェクトキーに "." が含まれていることが原因のようですが・・次のようにシャットダウン関数で修正して保存すれば大丈夫です。
+
+```php
+$profiler = new \Xhgui\Profiler\Profiler([
+    'profiler.enable' => function () {
+        return true;
+    },
+
+    'profiler.flags' => [
+        \Xhgui\Profiler\ProfilingFlags::CPU,
+        \Xhgui\Profiler\ProfilingFlags::MEMORY,
+        \Xhgui\Profiler\ProfilingFlags::NO_BUILTINS,
+        \Xhgui\Profiler\ProfilingFlags::NO_SPANS,
+    ],
+
+    'save.handler' => \Xhgui\Profiler\Profiler::SAVER_UPLOAD,
+
+    'save.handler.upload' => [
+        'uri' => 'http://xhgui/run/import',
+    ],
+]);
+
+$profiler->enable();
+
+register_shutdown_function(function () use ($profiler) {
+    ignore_user_abort(true);
+    session_write_close();
+    flush();
+    fastcgi_finish_request();
+
+    $data = $profiler->disable();
+    $profile = [];
+    foreach($data['profile'] as $key => $value) {
+        $profile[strtr($key, ['.' => '_'])] = $value;
+    }
+    $data['profile'] = $profile;
+    $profiler->save($data);
+});
+```
+
 ## さいごに
