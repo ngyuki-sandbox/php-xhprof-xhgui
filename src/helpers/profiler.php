@@ -32,6 +32,8 @@ register_shutdown_function(function () use ($profiler) {
     fastcgi_finish_request();
 
     // @see https://github.com/perftools/xhgui/issues/209
+    // アップストリームの 0.16.0 では修正済なのでこのハックは不要
+    // しかし edyan/xhgui だとまだ 0.14.0 なので残しておく
     $data = $profiler->disable();
     $profile = [];
     foreach($data['profile'] as $key => $value) {
