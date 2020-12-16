@@ -9,6 +9,7 @@ $profiler = new \Xhgui\Profiler\Profiler([
     },
 
     'profiler.flags' => [
+        // @see https://github.com/perftools/xhgui/issues/146
         \Xhgui\Profiler\ProfilingFlags::CPU,
         \Xhgui\Profiler\ProfilingFlags::MEMORY,
         \Xhgui\Profiler\ProfilingFlags::NO_BUILTINS,
@@ -29,6 +30,8 @@ register_shutdown_function(function () use ($profiler) {
     session_write_close();
     flush();
     fastcgi_finish_request();
+
+    // @see https://github.com/perftools/xhgui/issues/209
     $data = $profiler->disable();
     $profile = [];
     foreach($data['profile'] as $key => $value) {
